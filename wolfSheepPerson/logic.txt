@@ -1,0 +1,25 @@
+S <- <L,L,L,L>
+Q <- {S}, V <- null
+
+while (Q is not Empty) {
+    S <- Q.pop();
+    V <- V U {S};
+    for each s'<= Next(s)
+    if s = <R,R,R,R>
+        bingo
+    if(s' <=/ V) {
+        Q.push(S');
+    }
+}
+
+
+최종: <R,R,R,R>
+
+S는 state를 저장할 수 있는 변수.
+Q는 S를 저장할 수 있는 queue
+V는 S를 저장할 수 있는 {set}?
+
+다이스트라 알고리즘.
+s'.pred = s;
+
+꼭 읽어야한
