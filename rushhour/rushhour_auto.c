@@ -10,6 +10,7 @@ typedef enum {
 	right,
 	up,
 	down,
+	auto,
 	quit,
 	N_op 
 } commands ;
@@ -42,6 +43,7 @@ int cells[6][6] ; // cells[Y][X]
 // A6 -> cells[5][0]
 // F4 -> cells[3][5]
 // F1 -> cells[0][5]
+int memo_cells[200][6][6]
 
 /* --- NOFIX */
 
@@ -51,12 +53,15 @@ get_op_code (char * s)
 {
 	// return the corresponding number for the command given as s.
 	// FIXME
-	int i;
-	for (i = 0; i < N_op; i++)
-		if (strcmp(s, op_str[i]) == 0)
-			return i;
+	if ( strcmp( s, "start" )	== 0 )	return start;
+	if ( strcmp( s, "left" ) 	== 0 ) 	return left;
+	if ( strcmp( s, "right" ) 	== 0 ) 	return right;
+	if ( strcmp( s, "up" ) 		== 0 ) 	return up;
+	if ( strcmp( s, "down" ) 	== 0 ) 	return down;
+	if ( strcmp( s, "auto") 	== 0 )	return auto;
+	if ( strcmp( s, "quit" ) 	== 0 ) 	return quit;
 
-	return i;
+	return N_op;
 }
 
 
@@ -67,68 +72,67 @@ load_game (char * filename)
 	// load_game returns 0 for a success, or return 1 for a failure.
 	// Use fopen, getline, strtok, atoi, strcmp
 	// Note that the last character of a line obtained by getline may be '\n'.
-	FILE * fp = fopen(filename, "r");
+	FILE * fp = fopen ( filename, "r" );
 	char *line = NULL;
     size_t len = 0;
     ssize_t read;
 	char * data;
 	int spanOfCar = 0;
-	int i;
 
 	// file read fail
-	if (fp == NULL) {
-		fclose(fp);
+	if ( fp == NULL )
 		return 1;
-	}
 
 	// read the number of cars
-	if ((read = getline(&line, &len, fp)) == -1)  	
-		return 1;
-	n_cars = atoi(line);
-	if (n_cars < 1 || n_cars > 36)				
-		return 1;
+	if (( read = getline(&line, &len, fp)) == -1 )  return 1;
+	n_cars = atoi ( line );
+	if ( n_cars < 1 || n_cars > 36 )				return 1;
 
 
 	// alloc the cars
-	cars = malloc(sizeof(car_t) * n_cars);
+	cars = malloc ( sizeof(car_t) * n_cars );
 
-	for (i = 0; i < n_cars; i++) {
+	for ( int i = 0; i < n_cars; i++ ) {
+		// read one line.
 		if ((read = getline(&line, &len, fp)) == -1)
 			return 1;
 
+		// set car id.
 		cars[i].id = i + 1;
+
 		// cell:
-		data = strtok(line, ":");
+		data = strtok ( line, ":" );
 		cars[i].x1 = data[0] - 'A';
 		cars[i].y1 = 6 - (data[1] - '0');
-		if (strlen(data) != 2)				
-			return 1;
-		if (cars[i].x1 < 0  || cars[i].x1 > 5) 
-			return 1;
-		if (cars[i].y1 < 0  || cars[i].y1 > 5) 
-			return 1;
-		
+		if ( strlen(data) != 2 )				goto _err_load_file_;
+		if ( cars[i].x1 < 0  || cars[i].x1 > 5) return 1;
+		if ( cars[i].y1 < 0  || cars[i].y1 > 5) return 1;
+
 		// :direction:
-		data = strtok(NULL, ":"); 
-		cars[i].dir = (strcmp( data, "vertical") == 0)	 ? vertical
-					: (strcmp( data, "horizontal") == 0) ? horizontal : -1; 
-		if (cars[i].dir == -1) 
-			return 1;
+		data = strtok ( NULL, ":" ); 
+		cars[i].dir = ( strcmp( data, "vertical" ) == 0 ) ? vertical
+					: ( strcmp( data, "horizontal") == 0) ? horizontal : 3; 
+		if ( cars[i].dir == 3 ) return 1;
 
 		// :span
-		data = strtok(NULL, ":");
-		cars[i].span = atoi(data);
-		if (cars[i].span < 1 || cars[i].span > 6) 
-			return 1;
-		cars[i].x2 = (cars[i].dir == horizontal) ? cars[i].x1 + cars[i].span - 1 : cars[i].x1;
-		cars[i].y2 = (cars[i].dir == vertical)	 ? cars[i].y1 + cars[i].span - 1 : cars[i].y1;
+		data = strtok ( NULL, ":" );
+		cars[i].span = atoi ( data );
+		if ( cars[i].span < 1 || cars[i].span > 6) return 1;
+		cars[i].x2 = ( cars[i].dir == horizontal ) 	? cars[i].x1 + cars[i].span - 1 : cars[i].x1;
+		cars[i].y2 = ( cars[i].dir == vertical ) 	? cars[i].y1 + cars[i].span - 1 : cars[i].y1;
 
     }
 
-	free(line);
-	fclose(fp);
+	free ( line );
+	fclose ( fp );
 
 	return 0;
+
+_err_load_file_:
+	free ( line );
+	fclose ( fp );
+
+	return 1;
 }
 
 void
@@ -143,11 +147,11 @@ display ()
 	 + + + + + 4
 	 
 	*/
-	int i, j;
+
 	//FIXME
-	for (i = 0; i < 6; i++) {
-		for (j = 0 ; j < 6; j++) {
-			if (cells[i][j] == 0) 
+	for ( int i = 0; i < 6; i++ ) {
+		for ( int j = 0 ; j < 6; j++ ) {
+			if ( cells[i][j] == 0 ) 
 				printf("+ ");
 			else 
 				printf("%d ", cells[i][j]);
@@ -164,21 +168,17 @@ update_cells ()
 	//FIXME
 	// return 0 for sucess
 	// return 1 if the given car information (cars) has a problem
-	for (int i = 0; i < n_cars; i++) {
+	for ( int i = 0; i < n_cars; i++ ) {
 		int x = cars[i].x1;
 		int y = cars[i].y1;
-		for (int j = 0; j < cars[i].span; j++) {
+		for ( int j = 0; j < cars[i].span; j++ ) {
 			if ( x > 6 || y > 6 ) 	return 1;
 			if ( cells[y][x] != 0 )	return 1;
 			cells[y][x] = cars[i].id;
-			if (cars[i].dir == horizontal)
-				x++;
-			else
-				y++;
+			( cars[i].dir == horizontal )? x++ : y++;
 		}
 	}
 	return 0;
-
 }
 
 int
@@ -198,29 +198,29 @@ move (int id, int op)
 	// You can find the condition for moving right, up, down as
 	//   a similar fashion.
 	id = id - 1;
-	switch (op) {
+	switch ( op ) {
 			case left:
 				if ( cars[id].dir != horizontal ) 			 return 1;
 				if ( cars[id].x1 == 0 )						 return 1;
 				if ( cells[cars[id].y1][cars[id].x1-1] != 0) return 1;
-				cars[id].x1--;
-				cars[id].x2--;
+				cars[id].x1 --;
+				cars[id].x2 --;
 				break;
 
 			case right:
 				if ( cars[id].dir != horizontal ) 			 return 1;
 				if ( cars[id].x2 == 5 )						 return 1;
 				if ( cells[cars[id].y2][cars[id].x2+1] != 0) return 1;
-				cars[id].x1++;
-				cars[id].x2++;
+				cars[id].x1 ++;
+				cars[id].x2 ++;
 				break;
 
 			case up:
 				if ( cars[id].dir != vertical ) 			 return 1;
 				if ( cars[id].y1 == 0 )						 return 1;
 				if ( cells[cars[id].y1-1][cars[id].x1] != 0) return 1;
-				cars[id].y1--;
-				cars[id].y2--;
+				cars[id].y1 --;
+				cars[id].y2 --;
 				break;
 
 			case down:
@@ -238,6 +238,12 @@ move (int id, int op)
 	return 0;
 }
 
+int autoSolve(int id) 
+{
+	id = id - 1;
+	// 움직일 수 있는 블록들 찾기.
+}
+
 int
 main ()
 {
@@ -252,7 +258,7 @@ main ()
 			case start:
 				scanf("%s", buf) ;
 				if ( load_game(buf) ) { printf ("\ninvalid data..\n"); break; }
-				if ( update_cells() ) { printf ("\ninvalid data..\n"); cars = 0x0; break; }
+				if ( update_cells() ) { printf ("\ninvalid data..\n"); break; }
 				display() ;
 				break;
 
@@ -266,8 +272,8 @@ main ()
 				display() ;
 				break;
 			//FIXME
-			case quit:
-				printf ( "\niGood bye..!\n");
+			case auto:
+				autoSolve();
 				break;
 			case N_op:
 				printf ( "\ninvalid command..\n");
@@ -282,5 +288,5 @@ main ()
 		}
 	}
 
-	exit(EXIT_SUCCESS);
+	free(cars);
 }
