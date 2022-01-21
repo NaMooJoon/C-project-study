@@ -134,15 +134,6 @@ load_game (char * filename)
 void
 display ()
 {
-	/* The beginning state of board1.txt must be shown as follows: 
- 	 + + 2 + + +
- 	 + + 2 + + +
-	 1 1 2 + + +
-	 3 3 3 + + 4
-	 + + + + + 4
-	 + + + + + 4
-	 
-	*/
 	int i, j;
 	//FIXME
 	for (i = 0; i < 6; i++) {
@@ -153,7 +144,15 @@ display ()
 				printf("%d ", cells[i][j]);
 		}
 		printf("\n");
-	}
+	}/* The beginning state of board1.txt must be shown as follows: 
+ 	 + + 2 + + +
+ 	 + + 2 + + +
+	 1 1 2 + + +
+	 3 3 3 + + 4
+	 + + + + + 4
+	 + + + + + 4
+	 
+	*/	
 }
 
 int 
